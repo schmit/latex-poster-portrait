@@ -1,0 +1,85 @@
+
+\Head{Introduction}\\
+Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+
+\Head{Group lasso}\\
+One approach is the \emph{group lasso}:
+\[
+\begin{array}{ll}
+\mbox{minimize} & f(x) + \lambda \sum_{i=1}^N \|x_i\|_2
+\end{array}
+\]
+like lasso, but require groups of variables to be zero or not
+\begin{itemize}\itemsep=12pt
+\item also called $\ell_{1,2}$ mixed norm regularization
+\end{itemize}
+
+\Head{Structured group lasso}\\
+Another approach is the \emph{structured group lasso}:
+\[
+\begin{array}{ll}
+\mbox{minimize} & f(x) + \sum_{i=1}^N \lambda_i \|x_{g_i}\|_2
+\end{array}
+\]
+where $g_i \subseteq [n]$ and $\mathcal G = \{g_1, \dots, g_N\}$
+\begin{itemize}\itemsep=12pt
+\item like group lasso, but the groups can overlap arbitrarily
+\item particular choices of groups can impose `structured' sparsity
+\item topic models, selecting interaction terms for (graphical) models,
+    tree structure of gene networks, fMRI data
+\item generalizes to the \textbf{composite absolute penalties family}:
+\[
+r(x) = \|(\|x_{g_1}\|_{p_1}, \dots, \|x_{g_N}\|_{p_N})\|_{p_0}
+\]
+\end{itemize}
+
+\Head{Hierarchical selection}\\
+\begin{center}
+\begin{tikzpicture}
+[dot/.style={rectangle,draw=black,fill=white,inner sep=5pt,minimum size=5pt}]
+\node[dot,draw=orange,thick] at (0,10) (n1) {1};
+\node[dot] at (-3,8) (n2) {2};
+\node[dot,draw=orange,thick] at (3,8) (n3) {3};
+\node[dot] at (-3,6) (n4) {4};
+\node[dot,draw=orange,thick] at (1.5,6) (n5) {5};
+\node[dot] at (4.5,6) (n6) {6};
+\draw[->] (n1) -- (n2);
+\draw[->] (n1) -- (n3);
+\draw[->] (n2) -- (n4);
+\draw[->] (n3) -- (n5);
+\draw[->] (n3) -- (n6);
+\end{tikzpicture}
+\end{center}
+
+\begin{itemize}\itemsep=8pt
+    \item $\mathcal G = \{ \{4\}, \textcolor{orange}{\{5\}}, \{6\}, \{2,4\},
+        \textcolor{orange}{\{3,5,6\}}, \textcolor{orange}{\{1,2,3,4,5,6\} \}}$
+\item nonzero variables form a rooted and connected subtree
+    \begin{itemize}
+        \item if node is selected, so are its ancestors
+        \item if node is not selected, neither are its descendants
+    \end{itemize}
+\end{itemize}
+
+
+\Head{Algorithm}\\
+We solve this problem using an ADMM lasso implementation:
+\begin{verbatim}
+prox_f = @(v,rho) (rho/(1 + rho))*(v - b) + b;
+prox_g = @(v,rho) (max(0, v - 1/rho) - max(0, -v - 1/rho));
+
+AA = A*A';
+L  = chol(eye(m) + AA);
+
+for iter = 1:MAX_ITER
+    xx = prox_g(xz - xt, rho);
+    yx = prox_f(yz - yt, rho);
+
+    yz = L \ (L' \ (A*(xx + xt) + AA*(yx + yt)));
+    xz = xx + xt + A'*(yx + yt - yz);
+
+    xt = xt + xx - xz;
+    yt = yt + yx - yz;
+end
+\end{verbatim}
+
